@@ -17,6 +17,7 @@ from .errors import CliError, SelectionCancelled
 from .git_ops import (
     WorktreeRecord,
     add_worktree,
+    delete_worktree,
     ensure_control_worktree,
     exact_conflict_error,
     fetch_base_if_remote,
@@ -280,27 +281,39 @@ def handle_review(args: argparse.Namespace, config: Config, env: Mapping[str, st
     return result, 0
 
 
-def _resolve_open_target(raw_target: str, config: Config, control_dir: Path) -> tuple[WorktreeRecord, str, str | None]:
-    worktrees = list_worktrees(control_dir)
+def _resolve_worktree_record(raw_target: str, config: Config, control_dir: Path) -> WorktreeRecord:
     stripped = raw_target.strip()
-    candidate_path = Path(stripped).expanduser()
-    resolved_direct = candidate_path.resolve() if (os.path.sep in stripped or stripped.startswith(".")) else None
+    if not stripped:
+        raise CliError(
+            "INVALID_USAGE",
+            "Worktree target must not be empty.",
+            fix="Pass a worktree directory name, path, or branch.",
+            exit_code=2,
+        )
+
+    worktrees = list_worktrees(control_dir)
+    resolved_direct = (
+        Path(stripped).expanduser().resolve()
+        if (os.path.sep in stripped or stripped.startswith(".") or stripped.startswith("~"))
+        else None
+    )
     resolved_under_parent = (config.parent_dir / stripped).resolve()
 
     matched: WorktreeRecord | None = None
-    for record in worktrees:
-        if resolved_direct is not None and record.path == resolved_direct:
-            matched = record
-            break
-        if record.path == resolved_under_parent:
-            matched = record
-            break
-        if record.path.name.casefold() == stripped.casefold():
-            matched = record
-            break
-        if record.branch and record.branch.casefold() == stripped.casefold():
-            matched = record
-            break
+    if resolved_direct is not None:
+        matched = next((record for record in worktrees if record.path == resolved_direct), None)
+    if matched is None:
+        matched = next((record for record in worktrees if record.path == resolved_under_parent), None)
+    if matched is None:
+        matched = next(
+            (record for record in worktrees if record.path.name.casefold() == stripped.casefold()),
+            None,
+        )
+    if matched is None:
+        matched = next(
+            (record for record in worktrees if record.branch and record.branch.casefold() == stripped.casefold()),
+            None,
+        )
 
     if matched is None:
         raise CliError(
@@ -308,6 +321,11 @@ def _resolve_open_target(raw_target: str, config: Config, control_dir: Path) -> 
             f"No registered CUBRID worktree matches '{raw_target}'.",
             fix="List available worktrees with `cubrid-worktree list` or create one with `cubrid-worktree create`.",
         )
+    return matched
+
+
+def _resolve_open_target(raw_target: str, config: Config, control_dir: Path) -> tuple[WorktreeRecord, str, str | None]:
+    matched = _resolve_worktree_record(raw_target, config, control_dir)
 
     ticket = matched.ticket or extract_single_ticket(matched.path.name) or (
         extract_single_ticket(matched.branch) if matched.branch else None
@@ -384,6 +402,19 @@ def handle_list(args: argparse.Namespace, config: Config) -> tuple[dict[str, Any
     }, 0
 
 
+def handle_delete(args: argparse.Namespace, config: Config) -> tuple[dict[str, Any], int]:
+    control_dir = ensure_control_worktree(config.control_dir, config.parent_dir)
+    record = _resolve_worktree_record(args.target, config, control_dir)
+    result = delete_worktree(
+        control_dir,
+        record,
+        force=bool(args.force),
+        delete_branch=bool(args.delete_branch),
+        dry_run=bool(args.dry_run),
+    )
+    return result, 0
+
+
 def _format_human(data: dict[str, Any]) -> str:
     action = data.get("action")
     if action == "list":
@@ -418,6 +449,33 @@ def _format_human(data: dict[str, Any]) -> str:
                 lines.append(f"  #{item['pr_number']}: {item['error']['message']}")
         if not lines:
             return "No pull requests currently request your review."
+        return "\n".join(lines)
+
+    if action == "delete":
+        prefix = "[dry-run] " if data.get("dry_run") else ""
+        lines = [f"{prefix}Deleted worktree: {data['path']}"]
+        if data.get("branch"):
+            branch_del = data.get("branch_deletion") or {}
+            if branch_del.get("deleted"):
+                branch_state = "deleted"
+            elif branch_del.get("status") == "dry_run":
+                branch_state = "would delete"
+            else:
+                branch_state = "kept"
+            lines.append(f"Branch: {data['branch']} ({branch_state})")
+        if data.get("role"):
+            lines.append(f"Role: {data['role']}")
+        sub = data.get("submodules") or {}
+        populated = sub.get("populated") or []
+        cleaned = sub.get("cleaned_paths") or []
+        if populated or cleaned or sub.get("modules_gitdir_present"):
+            names = ", ".join(populated or cleaned or sub.get("discovered") or [])
+            if data.get("dry_run"):
+                mod_note = "; modules gitdir present" if sub.get("modules_gitdir_present") else ""
+                lines.append(f"Submodules: {names or 'present'}{mod_note}")
+            else:
+                mod_note = "; modules gitdir removed" if sub.get("modules_gitdir_removed") else ""
+                lines.append(f"Submodules: cleaned ({names or 'none'}){mod_note}")
         return "\n".join(lines)
 
     if data.get("message") and not data.get("path"):
@@ -524,7 +582,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  cubrid-worktree create CBRD-28099-bench --base origin/develop\n"
             "  cubrid-worktree review 7887\n"
             "  cubrid-worktree open CBRD-28099-bench\n"
-            "  cubrid-worktree list CBRD-28099 --json"
+            "  cubrid-worktree list CBRD-28099 --json\n"
+            "  cubrid-worktree delete CBRD-28099-bench"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -573,6 +632,31 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common_path_flags(list_p)
     _add_output_flags(list_p)
 
+    delete_p = subparsers.add_parser(
+        "delete",
+        help="Safely delete a linked CUBRID worktree (including submodules)",
+    )
+    delete_p.add_argument("target", help="Worktree directory name, path, or branch")
+    delete_p.add_argument(
+        "--delete-branch",
+        action="store_true",
+        help="Also delete the worktree's local branch (git branch -d, or -D with --force)",
+    )
+    delete_p.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Remove even if the worktree or its submodules have uncommitted/untracked changes",
+    )
+    delete_p.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Preview checks and actions without modifying Git or the filesystem",
+    )
+    _add_common_path_flags(delete_p)
+    _add_output_flags(delete_p)
+
     return root
 
 
@@ -618,6 +702,8 @@ def main(argv: list[str] | None = None, *, env: Mapping[str, str] | None = None)
             data, code = handle_open(args, config, active_env)
         elif args.subcommand == "list":
             data, code = handle_list(args, config)
+        elif args.subcommand == "delete":
+            data, code = handle_delete(args, config)
         else:
             raise CliError("INVALID_USAGE", f"Unknown subcommand: {args.subcommand}", exit_code=2)
 

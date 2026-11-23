@@ -61,6 +61,12 @@ cubrid-worktree open CBRD-28099-bench
 # List worktrees (optionally filtered by ticket)
 cubrid-worktree list
 cubrid-worktree list CBRD-28099 --json
+
+# Delete a clean linked worktree (safely handles submodules without --force)
+cubrid-worktree delete CBRD-28099-bench --dry-run --json
+cubrid-worktree delete CBRD-28099-bench --json
+cubrid-worktree delete CBRD-28099-bench --delete-branch --json
+cubrid-worktree delete CBRD-28099-bench --force --json
 ```
 
 ## Configuration
