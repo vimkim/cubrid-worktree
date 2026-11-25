@@ -66,8 +66,16 @@ cubrid-worktree list CBRD-28099 --json
 cubrid-worktree delete CBRD-28099-bench --dry-run --json
 cubrid-worktree delete CBRD-28099-bench --json
 cubrid-worktree delete CBRD-28099-bench --delete-branch --json
+cubrid-worktree delete CBRD-28099-bench --keep-install
 cubrid-worktree delete CBRD-28099-bench --force --json
 ```
+
+`delete` checks `/proc` for running `cub_*` processes that reference the
+worktree or its installation. Stop the listed processes before deleting, or
+pass `--force` to bypass the check. The command attempts to release
+`cub-workenv` allocations before removing the worktree and warns if the reset
+could not run. It removes the default `~/.cub/install/<worktree-name>` directory
+after worktree removal. Pass `--keep-install` to preserve it.
 
 ## Configuration
 

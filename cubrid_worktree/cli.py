@@ -402,7 +402,7 @@ def handle_list(args: argparse.Namespace, config: Config) -> tuple[dict[str, Any
     }, 0
 
 
-def handle_delete(args: argparse.Namespace, config: Config) -> tuple[dict[str, Any], int]:
+def handle_delete(args: argparse.Namespace, config: Config, env: Mapping[str, str]) -> tuple[dict[str, Any], int]:
     control_dir = ensure_control_worktree(config.control_dir, config.parent_dir)
     record = _resolve_worktree_record(args.target, config, control_dir)
     result = delete_worktree(
@@ -411,6 +411,8 @@ def handle_delete(args: argparse.Namespace, config: Config) -> tuple[dict[str, A
         force=bool(args.force),
         delete_branch=bool(args.delete_branch),
         dry_run=bool(args.dry_run),
+        keep_install=bool(args.keep_install),
+        env=env,
     )
     return result, 0
 
@@ -476,6 +478,11 @@ def _format_human(data: dict[str, Any]) -> str:
             else:
                 mod_note = "; modules gitdir removed" if sub.get("modules_gitdir_removed") else ""
                 lines.append(f"Submodules: cleaned ({names or 'none'}){mod_note}")
+        installation = data["installation"]
+        if installation["status"] == "would_remove":
+            lines.append(f"Would remove install: {installation['path']}")
+        elif installation["status"] == "removed":
+            lines.append(f"Removed install: {installation['path']}")
         return "\n".join(lines)
 
     if data.get("message") and not data.get("path"):
@@ -646,7 +653,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         "--force",
         action="store_true",
-        help="Remove even if the worktree or its submodules have uncommitted/untracked changes",
+        help="Remove even if the worktree is dirty or referenced by running CUBRID processes",
+    )
+    delete_p.add_argument(
+        "--keep-install",
+        action="store_true",
+        help="Keep the installation under ~/.cub/install/<worktree-name>",
     )
     delete_p.add_argument(
         "-n",
@@ -703,7 +715,9 @@ def main(argv: list[str] | None = None, *, env: Mapping[str, str] | None = None)
         elif args.subcommand == "list":
             data, code = handle_list(args, config)
         elif args.subcommand == "delete":
-            data, code = handle_delete(args, config)
+            data, code = handle_delete(args, config, active_env)
+            for warning in data["warnings"]:
+                print(f"warning: {warning}", file=sys.stderr)
         else:
             raise CliError("INVALID_USAGE", f"Unknown subcommand: {args.subcommand}", exit_code=2)
 
@@ -759,6 +773,8 @@ def main(argv: list[str] | None = None, *, env: Mapping[str, str] | None = None)
                 err_payload["details"] = exc.details
             _emit_json(err_payload, ok=False, stream=sys.stderr)
         else:
+            for warning in (exc.details or {}).get("warnings", []):
+                print(f"warning: {warning}", file=sys.stderr)
             print(f"error: {exc.code} — {exc.message}", file=sys.stderr)
             if exc.fix:
                 print(f"fix: {exc.fix}", file=sys.stderr)

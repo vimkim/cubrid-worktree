@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import stat
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -16,6 +18,7 @@ from .naming import extract_single_ticket
 
 LEGACY_UNTICKETED_REVIEW_RE = re.compile(r"^review-noticket-pr-([1-9][0-9]*)$", re.IGNORECASE)
 PR_NUMBER_URL_RE = re.compile(r"/pull/([1-9][0-9]*)/?$")
+PROC_DIR = Path("/proc")
 
 
 @dataclass(frozen=True)
@@ -511,6 +514,79 @@ def inspect_worktree_submodules(worktree_path: Path) -> dict[str, Any]:
     }
 
 
+def _running_cub_processes(worktree: Path, install: Path) -> list[dict[str, str]]:
+    roots = {os.fspath(path) for path in (worktree, install, install.resolve())}
+    try:
+        state = json.loads((worktree / ".cub-workenv/state.json").read_text())
+        if state.get("worktree") == str(worktree) and Path(state["install"]).is_absolute():
+            roots.add(state["install"])
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        pass
+
+    def references_target(value: str) -> bool:
+        path = value.removesuffix(" (deleted)")
+        return any(path == root or path.startswith(root + "/") for root in roots)
+
+    def link_target(path: Path) -> str:
+        try:
+            return os.readlink(path)
+        except OSError:
+            return ""
+
+    def process_fields(path: Path) -> list[str]:
+        try:
+            return os.fsdecode(path.read_bytes()).split("\0")
+        except OSError:
+            return []
+
+    matches = []
+    for process in PROC_DIR.iterdir():
+        if not process.name.isdecimal():
+            continue
+        try:
+            name = (process / "comm").read_text(errors="replace").rstrip("\n")
+        except OSError:
+            continue
+        exe = link_target(process / "exe")
+        if not (name.startswith("cub_") or Path(exe).name.startswith("cub_")):
+            continue
+        paths = [exe, link_target(process / "cwd")]
+        for arg in process_fields(process / "cmdline"):
+            paths.append(arg)
+            if arg.startswith("-") and "=" in arg:
+                paths.append(arg.split("=", 1)[1])
+        for field in process_fields(process / "environ"):
+            key, _, value = field.partition("=")
+            if key in ("CUBRID", "CUBRID_DATABASES", "TMPDIR"):
+                paths.append(value)
+        matched = any(map(references_target, paths))
+        if not matched:
+            try:
+                matched = any(references_target(link_target(fd)) for fd in (process / "fd").iterdir())
+            except OSError:
+                pass
+        if matched:
+            matches.append({"pid": process.name, "name": name})
+    return matches
+
+
+def _reset_workenv(worktree: Path, env: Mapping[str, str]) -> str | None:
+    command = shutil.which("cub-workenv", path=env.get("PATH", os.defpath))
+    if command is None:
+        return "cub-workenv is unavailable on PATH. Work environment reset was skipped."
+    try:
+        result = subprocess.run(
+            [command, "reset", "--worktree", os.fspath(worktree), "--apply"],
+            env=env, capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"cub-workenv reset failed for {worktree}: {exc}"
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip()
+        return f"cub-workenv reset failed for {worktree} (exit {result.returncode}): {detail}"
+    return None
+
+
 def delete_worktree(
     control_dir: Path,
     record: WorktreeRecord,
@@ -518,6 +594,8 @@ def delete_worktree(
     force: bool = False,
     delete_branch: bool = False,
     dry_run: bool = False,
+    keep_install: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     resolved_control = control_dir.resolve()
     if record.is_main or record.path == resolved_control:
@@ -565,6 +643,34 @@ def delete_worktree(
             f"Refusing to delete non-linked worktree gitdir: {record.path}",
             fix="Only linked worktrees under `<common-git-dir>/worktrees/` can be deleted.",
         )
+
+    active_env = os.environ if env is None else env
+    home = Path(active_env.get("HOME") or Path.home()).resolve()
+    install = home / ".cub" / "install" / record.name
+    warnings = []
+    install_status = "kept" if keep_install else "absent"
+    if not keep_install and os.path.lexists(install):
+        if _has_symlink_component(home, PurePosixPath(install.relative_to(home))) or not install.is_dir():
+            warnings.append(f"Skipped install cleanup for {install}. Expected a directory without symlinks in its path.")
+            install_status = "skipped"
+        else:
+            install_status = "would_remove" if dry_run else "remove"
+
+    if not force:
+        try:
+            processes = _running_cub_processes(record.path, install)
+        except OSError as exc:
+            raise CliError(
+                "PROCESS_CHECK_FAILED", f"Cannot inspect running CUBRID processes: {exc}",
+                fix="Make /proc available or use --force after checking for running CUBRID processes.",
+            ) from exc
+        if processes:
+            names = ", ".join(f"{p['name']} (PID {p['pid']})" for p in processes)
+            raise CliError(
+                "ACTIVE_CUBRID_PROCESSES", f"CUBRID processes reference {record.path} or its install: {names}",
+                fix="Stop the listed processes or pass --force to override the check.",
+                details={"processes": processes},
+            )
 
     wt_modules_dir = wt_gitdir / "modules"
     modules_gitdir_present = wt_modules_dir.exists()
@@ -635,6 +741,8 @@ def delete_worktree(
             "ticket": record.ticket,
             "pr_url": record.pr_url,
             "force": force,
+            "installation": {"path": str(install), "status": install_status},
+            "warnings": warnings,
             "submodules": {
                 "discovered": sub_info["top_level"],
                 "populated": sub_info["populated"],
@@ -688,7 +796,17 @@ def delete_worktree(
     if force:
         remove_cmd.append("--force")
     remove_cmd.append(os.fspath(record.path))
+    warning = _reset_workenv(record.path, active_env)
+    if warning:
+        warnings.append(warning)
     run_git(remove_cmd, cwd=control_dir)
+    if install_status == "remove":
+        try:
+            _rmtree_writable(install)
+            install_status = "removed"
+        except OSError as exc:
+            install_status = "failed"
+            warnings.append(f"Could not remove install {install}: {exc}")
 
     if not delete_branch:
         branch_deletion: dict[str, Any] = {
@@ -719,6 +837,7 @@ def delete_worktree(
                     "worktree_deleted": True,
                     "path": os.fspath(record.path),
                     "branch": record.branch,
+                    "warnings": warnings,
                 },
             )
         branch_deletion = {
@@ -740,6 +859,8 @@ def delete_worktree(
         "ticket": record.ticket,
         "pr_url": record.pr_url,
         "force": force,
+        "installation": {"path": str(install), "status": install_status},
+        "warnings": warnings,
         "submodules": {
             "discovered": sub_info["top_level"],
             "populated": sub_info["populated"],

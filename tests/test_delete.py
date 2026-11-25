@@ -43,6 +43,14 @@ class DeleteWorktreeTest(unittest.TestCase):
             "HERDR_ENV": "0",
         }
         (self.root / "home").mkdir()
+        self.bin_dir = self.root / "bin"
+        self.bin_dir.mkdir()
+        self.env["PATH"] = f"{self.bin_dir}:{os.defpath}"
+        self.proc_dir = self.root / "proc"
+        self.proc_dir.mkdir()
+        proc_patch = mock.patch("cubrid_worktree.git_ops.PROC_DIR", self.proc_dir)
+        proc_patch.start()
+        self.addCleanup(proc_patch.stop)
 
         self._git(self.root, "init", "--bare", "--initial-branch=develop", self.remote)
         self._git(self.root, "clone", self.remote, self.seed)
@@ -114,6 +122,85 @@ class DeleteWorktreeTest(unittest.TestCase):
         _, list_out, _ = self._run_cli("list", "--json")
         listed_names = [row["name"] for row in json.loads(list_out)["data"]["worktrees"]]
         self.assertNotIn("CBRD-28099-bench", listed_names)
+
+    def test_delete_blocks_running_cubrid_by_install_exe_and_worktree_cwd(self) -> None:
+        name = "CBRD-28098"
+        code, _, err = self._run_cli("create", name, "--no-prepare", "--json")
+        self.assertEqual(code, 0, err)
+        worktree = self.parent / name
+        install = self.root / "home" / ".cub" / "install" / name
+        install.mkdir(parents=True)
+        for pid, comm, field, target in (
+            (12, "renamed", "exe", install / "bin" / "cub_server"),
+            (13, "cub_broker", "cwd", worktree / "build"),
+            (14, "cub_server", "cwd", worktree.with_name(name + "-other")),
+            (15, "bash", "cwd", worktree),
+        ):
+            process = self.proc_dir / str(pid)
+            process.mkdir()
+            (process / "comm").write_text(comm + "\n")
+            (process / field).symlink_to(target)
+
+        code, out, err = self._run_cli("delete", name, "--keep-install", "--json")
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        error = json.loads(err)["error"]
+        self.assertEqual(error["code"], "ACTIVE_CUBRID_PROCESSES")
+        self.assertEqual({p["pid"] for p in error["details"]["processes"]}, {"12", "13"})
+        self.assertTrue(worktree.exists())
+        self.assertTrue(install.exists())
+
+        code, out, err = self._run_cli("delete", name, "--force", "--keep-install", "--json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["data"]["installation"]["status"], "kept")
+        self.assertIn("cub-workenv is unavailable", err)
+        self.assertFalse(worktree.exists())
+        self.assertTrue(install.exists())
+
+    def test_delete_resets_before_removal_and_cleans_default_install(self) -> None:
+        name = "CBRD-28097"
+        code, _, err = self._run_cli("create", name, "--no-prepare", "--json")
+        self.assertEqual(code, 0, err)
+        worktree = self.parent / name
+        install = self.root / "home" / ".cub" / "install" / name
+        install.mkdir(parents=True)
+        (install / "artifact").write_text("built")
+        command = self.bin_dir / "cub-workenv"
+        command.write_text('#!/bin/sh\n[ "$1" = reset ] && [ "$2" = --worktree ] && [ -d "$3" ] && [ "$4" = --apply ] || exit 2\nprintf "%s\\n" "$3" > "$HOME/reset.log"\n')
+        command.chmod(0o755)
+        log = self.root / "home" / "reset.log"
+
+        code, out, err = self._run_cli("delete", name, "--dry-run", "--json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["data"]["installation"]["status"], "would_remove")
+        self.assertFalse(log.exists())
+        self.assertTrue(install.exists())
+
+        code, out, err = self._run_cli("delete", name, "--json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(log.read_text().strip(), str(worktree))
+        self.assertEqual(json.loads(out)["data"]["installation"]["status"], "removed")
+        self.assertFalse(worktree.exists())
+        self.assertFalse(install.exists())
+
+    def test_delete_warns_on_reset_failure_and_preserves_symlinked_install_root(self) -> None:
+        name = "CBRD-28096"
+        code, _, err = self._run_cli("create", name, "--no-prepare", "--json")
+        self.assertEqual(code, 0, err)
+        shared = self.root / "shared"
+        (shared / name).mkdir(parents=True)
+        self.root.joinpath("home", ".cub").mkdir()
+        self.root.joinpath("home", ".cub", "install").symlink_to(shared)
+        command = self.bin_dir / "cub-workenv"
+        command.write_text("#!/bin/sh\necho 'reset blocked' >&2\nexit 1\n")
+        command.chmod(0o755)
+        code, out, err = self._run_cli("delete", name, "--json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["data"]["installation"]["status"], "skipped")
+        self.assertIn("reset blocked", err)
+        self.assertIn("Skipped install cleanup", err)
+        self.assertTrue((shared / name).is_dir())
+        self.assertFalse((self.parent / name).exists())
 
     def test_delete_with_delete_branch_deletes_merged_and_refuses_unmerged_without_force(self) -> None:
         code, _, err = self._run_cli("create", "CBRD-100", "--no-prepare", "--json")
