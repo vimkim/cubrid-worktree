@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" role="img" aria-labelledby="hero-dark-title hero-dark-desc">
+  <title id="hero-dark-title">cubrid-worktree ticket-first lifecycle</title>
+  <desc id="hero-dark-desc">Diagram showing cubrid-worktree resolving the control checkout at ~/gh/cb/develop, creating or reviewing sibling worktrees with prepare-build and Herdr Space/Tab placement, and running guarded deletion with /proc cub_* checks, cub-workenv release, and install cleanup.</desc>
+  <defs>
+    <marker id="arrow-blue-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrow-amber-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#f0883e"/>
+    </marker>
+  </defs>
+
+  <!-- Canvas -->
+  <rect x="0.5" y="0.5" width="1199" height="539" rx="14" fill="#0d1117" stroke="#30363d"/>
+
+  <!-- Subtle background dividers -->
+  <g stroke="#21262d" stroke-width="1" stroke-opacity="0.55">
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="506" x2="1200" y2="506"/>
+  </g>
+
+  <!-- Header -->
+  <rect x="32" y="22" width="248" height="24" rx="12" fill="#1f6feb" fill-opacity="0.16" stroke="#388bfd" stroke-opacity="0.5"/>
+  <text x="156" y="38" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="600" fill="#79c0ff">CUBRID WORKFLOW CLI · STDLIB ONLY</text>
+
+  <text x="32" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#e6edf3">cubrid-worktree</text>
+  <text x="242" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#8b949e">Ticket-first sibling worktrees, build prep, Herdr Space/Tab placement &amp; guarded cleanup from any cwd</text>
+
+  <!-- Top-right CLI output mode pills -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="600">
+    <rect x="924" y="24" width="68" height="24" rx="6" fill="#161b22" stroke="#30363d"/>
+    <text x="958" y="40" text-anchor="middle" fill="#8b949e">--json</text>
+
+    <rect x="1000" y="24" width="74" height="24" rx="6" fill="#161b22" stroke="#30363d"/>
+    <text x="1037" y="40" text-anchor="middle" fill="#8b949e">--plain</text>
+
+    <rect x="1082" y="24" width="86" height="24" rx="6" fill="#161b22" stroke="#30363d"/>
+    <text x="1125" y="40" text-anchor="middle" fill="#8b949e">--dry-run</text>
+  </g>
+
+  <!-- ==================== STAGE 1: CONTROL CHECKOUT ==================== -->
+  <rect x="32" y="114" width="244" height="378" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="48" y="128" width="144" height="22" rx="6" fill="#1f6feb" fill-opacity="0.18" stroke="#388bfd" stroke-opacity="0.55"/>
+  <text x="120" y="143" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#79c0ff">1. CONTROL CHECKOUT</text>
+
+  <!-- Control repo box -->
+  <rect x="48" y="164" width="212" height="66" rx="8" fill="#0d1117" stroke="#388bfd" stroke-opacity="0.6"/>
+  <text x="62" y="189" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="15" font-weight="700" fill="#e6edf3">~/gh/cb/develop</text>
+  <text x="62" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b949e">Control checkout (any cwd)</text>
+
+  <!-- Stage 1 steps -->
+  <g>
+    <rect x="48" y="244" width="212" height="52" rx="8" fill="#0d1117" stroke="#21262d"/>
+    <text x="62" y="266" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#e6edf3">Sibling parent resolution</text>
+    <text x="62" y="284" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" fill="#79c0ff">~/gh/cb/&lt;worktree&gt;</text>
+
+    <rect x="48" y="306" width="212" height="52" rx="8" fill="#0d1117" stroke="#21262d"/>
+    <text x="62" y="328" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#e6edf3">Base ref sync on create</text>
+    <text x="62" y="346" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" fill="#8b949e">fetch origin/develop</text>
+
+    <rect x="48" y="368" width="212" height="52" rx="8" fill="#0d1117" stroke="#21262d"/>
+    <text x="62" y="390" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#e6edf3">PR lookup on review</text>
+    <text x="62" y="408" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" fill="#8b949e">cubrid-dev2-pr / gh pr</text>
+  </g>
+
+  <rect x="48" y="434" width="212" height="44" rx="8" fill="#1f6feb" fill-opacity="0.1" stroke="#30363d"/>
+  <text x="154" y="453" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#79c0ff">Run from any directory</text>
+  <text x="154" y="469" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">CUBRID_WORKTREE_CONTROL_DIR</text>
+
+  <!-- Connector 1 -> 2 -->
+  <line x1="278" y1="264" x2="312" y2="264" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow-blue-dark)"/>
+  <text x="295" y="252" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#79c0ff">add</text>
+
+  <!-- ==================== STAGE 2: SIBLING WORKTREES + PREPARE + HERDR ==================== -->
+  <rect x="316" y="114" width="528" height="378" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="334" y="128" width="290" height="22" rx="6" fill="#238636" fill-opacity="0.2" stroke="#2ea043" stroke-opacity="0.6"/>
+  <text x="479" y="143" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#56d364">2. WORKTREES + PREPARE + HERDR TOPOLOGY</text>
+
+  <!-- 3 sibling worktree cards -->
+  <g>
+    <!-- Card A -->
+    <rect x="334" y="162" width="156" height="74" rx="8" fill="#0d1117" stroke="#2ea043" stroke-opacity="0.55"/>
+    <text x="346" y="185" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="13" font-weight="700" fill="#56d364">CBRD-xxxxx</text>
+    <text x="346" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Primary / 1st review</text>
+    <text x="346" y="223" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">cubrid-role=review</text>
+
+    <!-- Card B -->
+    <rect x="502" y="162" width="166" height="74" rx="8" fill="#0d1117" stroke="#30363d"/>
+    <text x="514" y="185" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12.5" font-weight="700" fill="#e6edf3">CBRD-xxxxx-&lt;sum&gt;</text>
+    <text x="514" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Bench / exp / -pr-&lt;N&gt;</text>
+    <text x="514" y="223" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">short kebab-case</text>
+
+    <!-- Card C -->
+    <rect x="680" y="162" width="146" height="74" rx="8" fill="#0d1117" stroke="#30363d"/>
+    <text x="692" y="185" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="13" font-weight="700" fill="#e6edf3">PR-&lt;N&gt;</text>
+    <text x="692" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Unticketed PR</text>
+    <text x="692" y="223" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">no [TICKET] tag</text>
+  </g>
+
+  <!-- prepare-build bar -->
+  <rect x="334" y="246" width="492" height="44" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <rect x="346" y="257" width="106" height="22" rx="5" fill="#238636" fill-opacity="0.18" stroke="#2ea043" stroke-opacity="0.5"/>
+  <text x="399" y="272" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="600" fill="#56d364">prepare-build</text>
+  <text x="464" y="272" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.8" fill="#e6edf3">just ... prepare-build  --&gt;  ~/.cub/install/&lt;name&gt;</text>
+
+  <!-- Herdr Space container -->
+  <rect x="334" y="302" width="492" height="176" rx="10" fill="#0d1117" stroke="#8957e5" stroke-opacity="0.65"/>
+  <path d="M 344 302 H 816 Q 826 302 826 312 V 336 H 334 V 312 Q 334 302 344 302 Z" fill="#8957e5" fill-opacity="0.16"/>
+  <line x1="334" y1="336" x2="826" y2="336" stroke="#8957e5" stroke-opacity="0.45"/>
+  <text x="350" y="324" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#d2a8ff">Herdr Space: CBRD-xxxxx</text>
+  <text x="810" y="324" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" fill="#bc8cff">HERDR_ENV=1 · 1 Space / ticket</text>
+
+  <!-- Herdr Tabs row -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5">
+    <rect x="350" y="348" width="144" height="30" rx="6" fill="#8957e5" fill-opacity="0.22" stroke="#bc8cff" stroke-opacity="0.7"/>
+    <text x="422" y="367" text-anchor="middle" font-weight="600" fill="#e6edf3">Tab: primary</text>
+
+    <rect x="504" y="348" width="150" height="30" rx="6" fill="#161b22" stroke="#30363d"/>
+    <text x="579" y="367" text-anchor="middle" fill="#79c0ff">Tab: &lt;summary&gt;</text>
+
+    <rect x="664" y="348" width="146" height="30" rx="6" fill="#161b22" stroke="#30363d"/>
+    <text x="737" y="367" text-anchor="middle" fill="#8b949e">Tab: pr-&lt;N&gt;</text>
+  </g>
+
+  <!-- Herdr topology rules -->
+  <text x="350" y="404" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">• Absent Space: <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#d2a8ff">herdr-next-to-current</tspan> (or <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#d2a8ff">herdr workspace create</tspan>)</text>
+  <text x="350" y="428" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">• Existing Space: new Tab in <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#d2a8ff">CBRD-xxxxx</tspan> with <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#79c0ff">--cwd</tspan> -&gt; worktree</text>
+  <text x="350" y="452" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b949e">• <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#e6edf3">open</tspan> focuses matching cwd tab or adds a tab via <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#79c0ff">--new-tab</tspan></text>
+
+  <!-- Connector 2 -> 3 -->
+  <line x1="846" y1="264" x2="880" y2="264" stroke="#f0883e" stroke-width="2" marker-end="url(#arrow-amber-dark)"/>
+  <text x="863" y="252" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#f0883e">del</text>
+
+  <!-- ==================== STAGE 3: GUARDED DELETE ==================== -->
+  <rect x="884" y="114" width="284" height="378" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="902" y="128" width="128" height="22" rx="6" fill="#9e6a03" fill-opacity="0.24" stroke="#f0883e" stroke-opacity="0.6"/>
+  <text x="966" y="143" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#ffa657">3. SAFE DELETE</text>
+
+  <!-- Step 3.1 -->
+  <rect x="902" y="162" width="248" height="64" rx="8" fill="#0d1117" stroke="#f0883e" stroke-opacity="0.5"/>
+  <text x="916" y="184" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#ffa657">1. /proc cub_* Process Guard</text>
+  <text x="916" y="203" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Blocks if running cub_* uses</text>
+  <text x="916" y="218" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b949e">worktree cwd or install exe</text>
+
+  <!-- Step 3.2 -->
+  <rect x="902" y="236" width="248" height="64" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="916" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#e6edf3">2. cub-workenv Release</text>
+  <text x="916" y="277" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Releases port/env allocation</text>
+  <text x="916" y="292" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b949e">before removal (warns on fail)</text>
+
+  <!-- Step 3.3 -->
+  <rect x="902" y="310" width="248" height="64" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="916" y="332" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#e6edf3">3. Submodule-Safe Removal</text>
+  <text x="916" y="351" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3">Cleans linked worktree +</text>
+  <text x="916" y="366" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b949e">submodules without --force</text>
+
+  <!-- Step 3.4 -->
+  <rect x="902" y="384" width="248" height="64" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="916" y="406" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#e6edf3">4. Install &amp; Branch Cleanup</text>
+  <text x="916" y="425" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" fill="#79c0ff">rm ~/.cub/install/&lt;name&gt;</text>
+  <text x="916" y="440" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">--keep-install | --delete-branch</text>
+
+  <text x="1026" y="472" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" fill="#8b949e">Bypass dirty/proc check: --force</text>
+
+  <!-- Footer -->
+  <text x="32" y="526" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" fill="#8b949e">Exit codes:  0 ok   ·   1 domain failure   ·   2 usage/validation   ·   130 cancelled</text>
+  <text x="1168" y="526" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" fill="#8b949e">Precedence: CLI flags &gt; env vars &gt; defaults</text>
+</svg>

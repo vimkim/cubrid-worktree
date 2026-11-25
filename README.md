@@ -1,8 +1,43 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/readme/hero-light.svg" />
+  <img alt="cubrid-worktree ticket-first lifecycle: control checkout to sibling worktrees, prepare-build, Herdr Space/Tab placement, and guarded delete" src="assets/readme/hero-light.svg" width="100%" />
+</picture>
+
 # cubrid-worktree
 
-Ticket-first Git worktree, PR review checkout, build preparation, and [Herdr](https://herdr.dev) workspace/tab manager for CUBRID development.
+**Ticket-first Git worktree, PR review checkout, build preparation, and [Herdr](https://herdr.dev) workspace/tab manager for CUBRID development.**
+
+Python 3.10+ stdlib only · Run from **any directory** · Machine-readable `--json` and `--plain` output
+
+<p>
+  <a href="#why-this-exists">Why this exists</a> •
+  <a href="#naming-conventions">Naming</a> •
+  <a href="#herdr-topology">Herdr topology</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#exit-codes">Exit codes</a>
+</p>
+
+</div>
+
+---
 
 Run from **any directory** — `cubrid-worktree` resolves your CUBRID control checkout (default `~/gh/cb/develop`) automatically, creates sibling worktrees under its parent directory (default `~/gh/cb/`), prepares the build environment, and opens the corresponding Herdr Space or Tab.
+
+## Why this exists
+
+Multi-branch CUBRID engineering quickly outgrows ad-hoc `git worktree` commands—especially when juggling parallel ticket work, PR reviews, submodules, local installations, and terminal multiplexers across AI-agent sessions.
+
+`cubrid-worktree` standardizes the full lifecycle around a single source of truth:
+
+- **Ticket-first worktree naming**: Resolves `~/gh/cb/develop` from any `cwd` and enforces deterministic sibling directories (`CBRD-xxxxx`, `CBRD-xxxxx-<summary>`, `CBRD-xxxxx-pr-<N>`, `PR-<N>`) so humans and agents always know where a branch lives.
+- **Herdr Space/Tab topology**: Maps each ticket to **one Herdr Space** (`CBRD-xxxxx` or `PR-<N>`) and attaches derived experiments, benchmarks, and additional PR checkouts as **Tabs** inside that Space.
+- **Guarded `delete` with `/proc` inspection**: Scans `/proc` for running `cub_*` processes referencing the worktree or its installation before tearing anything down, preventing accidental deletion under live database servers.
+- **Automatic `cub-workenv` & install cleanup**: Releases `cub-workenv` allocations prior to removal (warning if reset fails), handles linked worktree submodules cleanly without `--force`, and removes `~/.cub/install/<worktree-name>` unless `--keep-install` is passed.
 
 ## Naming conventions
 
@@ -27,6 +62,8 @@ When running inside Herdr (`HERDR_ENV=1`):
 
 ## Installation
 
+Install from a local clone (recommended for development and `just` integration):
+
 ```bash
 git clone https://github.com/vimkim/cubrid-worktree.git ~/gh/cubrid-worktree
 cd ~/gh/cubrid-worktree
@@ -41,6 +78,10 @@ uv tool install git+https://github.com/vimkim/cubrid-worktree
 
 ## Usage
 
+All subcommands support `--json` (structured envelope on stdout), `--plain` (tab-separated lines), and `--dry-run` (`-n`, mutating commands) for reliable scripting and agent automation.
+
+### Create & derived worktrees
+
 ```bash
 # Primary ticket worktree (fetches origin/develop, prepares build, opens Herdr Space)
 cubrid-worktree create CBRD-28099
@@ -48,20 +89,32 @@ cubrid-worktree create CBRD-28099
 # Non-PR benchmark/test/experiment worktree (works with or without CBRD-28099)
 cubrid-worktree create CBRD-28099-bench
 cubrid-worktree create CBRD-28099 --summary 11.4 --base origin/release/11.4
+```
 
+### PR review checkouts
+
+```bash
 # PR review worktree (by number, URL, interactive fzf picker, or all requested)
 cubrid-worktree review 7887
 cubrid-worktree review https://github.com/CUBRID/cubrid/pull/7887
 cubrid-worktree review --interactive
 cubrid-worktree review --all
+```
 
+### Open & list worktrees
+
+```bash
 # Open an existing worktree in Herdr using the ticket Space/Tab rule
 cubrid-worktree open CBRD-28099-bench
 
 # List worktrees (optionally filtered by ticket)
 cubrid-worktree list
 cubrid-worktree list CBRD-28099 --json
+```
 
+### Safe delete & cleanup
+
+```bash
 # Delete a clean linked worktree (safely handles submodules without --force)
 cubrid-worktree delete CBRD-28099-bench --dry-run --json
 cubrid-worktree delete CBRD-28099-bench --json
